@@ -8,7 +8,7 @@
 1. **[Retrieve roles and granted permissions in AzSQL](#RetrieveRolesandGrantedPermissionsinAzSQL)**
 2. **[Obfuscate Data](#ObfuscateData)**
 3. **[Truncate date for grouping and comparing](#Truncatedateforgroupingandcomparing)**
-4. **[Parse/Deflate XML](#Parse/DeflateXML)**
+4. **[Parse/Deflate XML](#ParseDeflateXML)**
 <!--
 5. **[](#)**
 6. **[](#)**
@@ -120,7 +120,7 @@ ORDER BY
 	[Id] ASC;
 ```
 
-## <font style="Color:blue;">Parse/Deflate&nbsp;XML</font>
+## <font style="Color:blue;">Truncate&nbsp;date&nbsp;for&nbsp;grouping&nbsp;and&nbsp;comparing</font>
 ```sql
 /* Equivalent to bin() in KQL */
 DECLARE	@d datetime2	=	'2021-12-08 11:30:15.1234567';
@@ -140,7 +140,8 @@ SELECT
 	,	'Millisecond'	=	DATETRUNC(millisecond, @d)
 	,	'Microsecond'	=	DATETRUNC(microsecond, @d);
 ```
-## <font style="Color:blue;">Truncate&nbsp;date&nbsp;for&nbsp;grouping&nbsp;and&nbsp;comparing</font>
+
+## <font style="Color:blue;">Parse/Deflate&nbsp;XML</font>
 ```sql
 -- ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•
 DECLARE @xml XML;
