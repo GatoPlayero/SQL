@@ -10,9 +10,10 @@
 3. **[Truncate date for grouping and comparing](#Truncatedateforgroupingandcomparing)**
 4. **[Parse/Deflate JASON](#ParseDeflateJASON)**
 5. **[Flattening JSON](#FlatteningJSON)**
-6. **[Parse/Deflate XML](#ParseDeflateXML)**
+6. **[Read long (~>5M) JSON/VARCHAR(MAX) values from SSMS](#Readlong(~>5M)JSONVARCHAR(MAX)valuesfromSSMS)**
+7. **[Parse/Deflate XML](#ParseDeflateXML)**
 <!--
-7. **[](#)**
+
 8. **[](#)**
 9. **[](#)**
 10. **[](#)**
@@ -309,6 +310,32 @@ FOR XML PATH('')),2,200) AS [CSV]
 /* ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••• */
 ```
 
+## <font style="Color:blue;">Read&nbsp;long&nbsp;(~>5M)&nbsp;JSON/VARCHAR(MAX)&nbsp;values&nbsp;from&nbsp;SSMS</font>
+
+Verify next configuration on SSMS:
+<!-- <img src="./resources/images/001.png" width="100%" /> -->
+![alt text](./resources/images/001.png "001")
+
+```sql
+/*
+For this exercise you need to insert a 5M json into the temporary table before trying the query,
+you can download 1 example RAW here:
+https://microsoftedge.github.io/Demos/json-dummy-data/5MB.json
+*/
+DECLARE @tbl AS TABLE
+					(
+						[ID] [int] IDENTITY(1,1) NOT NULL
+					,	[j] [nvarchar](MAX) NULL
+					);
+DECLARE @json NVARCHAR(MAX) = '<Copy_and_Paste_The_5M_JSON_Here>';
+INSERT INTO @tbl ([j]) VALUES (@json);
+/* •-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-• */
+SELECT
+    CAST('<A><![CDATA[' + CAST([j] as nvarchar(max)) + ']]></A>' AS xml)
+FROM @tbl;
+/* •-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-• */
+```
+
 ## <font style="Color:blue;">Parse/Deflate&nbsp;XML</font>
 ```sql
 /* ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~••~•~•~•~•~•~•~•~•~•~•~•~•~•~•~• */
@@ -391,3 +418,4 @@ WHERE
 	T.dimtype in('height','width');
 /* ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~••~•~•~•~•~•~•~•~•~•~•~•~•~•~•~• */
 ```
+
