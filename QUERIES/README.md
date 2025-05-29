@@ -5,10 +5,24 @@
 <hr>
 
 ## Table of Contents
-1. **[Retrieve Roles and Granted Permissions in AzSQL](#RetrieveRolesandGrantedPermissionsinAzSQL)**
+1. **[Retrieve roles and granted permissions in AzSQL](#RetrieveRolesandGrantedPermissionsinAzSQL)**
+2. **[Obfuscate Data](#ObfuscateData)**
+3. **[Truncate date for grouping and comparing](#Truncatedateforgroupingandcomparing)**
+4. **[Parse/Deflate JASON](#ParseDeflateJASON)**
+5. **[Flattening JSON](#FlatteningJSON)**
+6. **[Read long (~>5M) JSON/VARCHAR(MAX) values from SSMS](#Readlong5MJSONVARCHARMAXvaluesfromSSMS)**
+7. **[Parse/Deflate XML](#ParseDeflateXML)**
+<!--
+8. **[](#)**
+9. **[](#)**
+10. **[](#)**
+11. **[](#)**
+-->
 
 
-## <font style="Color:blue;">Retrieve&nbsp;Roles&nbsp;and&nbsp;Granted&nbsp;Permissions&nbsp;in&nbsp;AzSQL&#160;</font>
+
+
+## <font style="Color:blue;">Retrieve&nbsp;roles&nbsp;and&nbsp;granted&nbsp;permissions&nbsp;in&nbsp;AzSQL&#160;</font>
 
 ```sql
 /* Get db users and their roles for Azure SQL */
@@ -78,3 +92,329 @@ WHERE
 							,	'APPLICATION_ROLE'
 						) -- You can apply filter(s) for users and groups
 ```
+
+## <font style="Color:blue;">Obfuscate&nbsp;data</font>
+```sql
+DECLARE @TopCat AS TABLE
+					(
+						[Id] [int] IDENTITY(1,1) NOT NULL
+					,	[Name] [varchar](50) NULL
+					,	[Alias] [varchar](50) NULL
+					);
+ 
+INSERT INTO @TopCat ([Name], [Alias]) VALUES ('Don Gato',		'Top Cat');
+INSERT INTO @TopCat ([Name], [Alias]) VALUES ('Demostenes',		'The Brain');
+INSERT INTO @TopCat ([Name], [Alias]) VALUES ('Benito Bodoque',	'Benny the Ball');
+INSERT INTO @TopCat ([Name], [Alias]) VALUES ('Panza',			'Fancy-Fancy');
+INSERT INTO @TopCat ([Name], [Alias]) VALUES ('Espanto',		'Spook');
+INSERT INTO @TopCat ([Name], [Alias]) VALUES ('Cucho',			'Choo-Choo');
+
+/* Algorithms Available >> MD2 | MD4 | MD5 | SHA | SHA1 | SHA2_256 | SHA2_512  */
+SELECT
+		[Name]
+	,	[Option1]	=	CONVERT(NVARCHAR(MAX), HASHBYTES('SHA2_512', CONVERT(NVARCHAR(MAX), [Alias])), 2)
+	,	[Option2]	=	HASHBYTES('SHA2_512', CONVERT(NVARCHAR(MAX), [Alias]))
+FROM
+	@TopCat
+ORDER BY
+	[Id] ASC;
+```
+
+## <font style="Color:blue;">Truncate&nbsp;date&nbsp;for&nbsp;grouping&nbsp;and&nbsp;comparing</font>
+```sql
+/* Equivalent to bin() in KQL */
+DECLARE	@d datetime2	=	'2021-12-08 11:30:15.1234567';
+SELECT	@d				=	sysdatetimeoffset();
+SELECT
+		'_'				=	@d
+	,	'Year'			=	DATETRUNC(year, @d)
+	,	'Quarter'		=	DATETRUNC(quarter, @d)
+	,	'Month'			=	DATETRUNC(month, @d)
+	,	'Week'			=	DATETRUNC(week, @d) -- Using the default DATEFIRST setting value of 7 (U.S. English)
+	,	'Iso_week'		=	DATETRUNC(iso_week, @d)
+	,	'DayOfYear'		=	DATETRUNC(dayofyear, @d)
+	,	'Day'			=	DATETRUNC(day, @d)
+	,	'Hour'			=	DATETRUNC(hour, @d)
+	,	'Minute'		=	DATETRUNC(minute, @d)
+	,	'Second'		=	DATETRUNC(second, @d)
+	,	'Millisecond'	=	DATETRUNC(millisecond, @d)
+	,	'Microsecond'	=	DATETRUNC(microsecond, @d);
+```
+
+## <font style="Color:blue;">Parse/Deflate&nbsp;JASON</font>
+```sql
+DECLARE @tbl AS TABLE
+					(
+						[ID] [int] IDENTITY(1,1) NOT NULL
+					,	[j] [nvarchar](MAX) NULL
+					);
+ 
+DECLARE @json NVARCHAR(MAX)
+	= '{
+			"firstName": "John",
+			"lastName": "doe",
+			"age": 26,
+			"address": {
+				"streetAddress": "naist street",
+				"city": "Nara",
+				"postalCode": "630-0192"
+			},
+			"phoneNumbers": [
+				{
+					"type": "iPhone",
+					"number": "0123-4567-8888"
+				},
+				{
+					"type": "home",
+					"number": "0123-4567-8910"
+				}
+			]
+		}';
+ 
+INSERT INTO @tbl ([j]) VALUES (@json);
+SELECT @json = NULL;
+ 
+SELECT
+		Core.*
+	,	ARRAY.[Type]
+	,	ARRAY.[Number]
+FROM
+	@tbl [tbl]
+	OUTER APPLY
+		OPENJSON([tbl].[j])
+			WITH
+			(
+					FirstName NVARCHAR(25) '$.firstName'
+				,	LastName NVARCHAR(25) '$.lastName'
+				,	Age INT '$.age'
+				,	streetAddress NVARCHAR(25) '$.address.streetAddress'
+				,	city NVARCHAR(25) '$.address.city'
+			) AS Core
+		CROSS APPLY
+		OPENJSON([tbl].[j], '$.phoneNumbers')
+			WITH
+			(
+					[Type] NVARCHAR(25) '$.type'
+				,	[Number] NVARCHAR(25) '$.number'
+			) AS ARRAY;
+```
+
+## <font style="Color:blue;">Flattening&nbsp;JSON</font>
+```
+/* ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••• */
+DECLARE @TopCat AS TABLE
+					(
+						[Id] [int] IDENTITY(1,1) NOT NULL
+					,	[Name] [varchar](50) NULL
+					,	[Alias] [varchar](50) NULL
+					,	[GroupColumn] [int] NULL
+					);
+ 
+INSERT INTO @TopCat ([Name], [Alias], [GroupColumn]) VALUES ('Don Gato',		'Top Cat',				0);
+INSERT INTO @TopCat ([Name], [Alias], [GroupColumn]) VALUES ('Demostenes',		'The Brain',			1);
+INSERT INTO @TopCat ([Name], [Alias], [GroupColumn]) VALUES ('Benito Bodoque',	'Benny the Ball',		2);
+INSERT INTO @TopCat ([Name], [Alias], [GroupColumn]) VALUES ('Panza',			'Fancy-Fancy',			3);
+INSERT INTO @TopCat ([Name], [Alias], [GroupColumn]) VALUES ('Espanto',			'Spook',				1);
+INSERT INTO @TopCat ([Name], [Alias], [GroupColumn]) VALUES ('Cucho',			'Choo-Choo',			0);
+/* ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••• */
+SELECT
+		[Id]
+	,	[Full_json]
+	,	[NamesList_json]
+FROM
+	(
+	SELECT
+		[i].[Id]
+		,[Full_json] = '[{' + STUFF((
+										SELECT
+											',{'
+											+
+												CASE WHEN
+													1 = 1
+												THEN
+													'"Nombre":' + IIF([sj].[Name] IS NOT NULL, '"' + CONVERT([varchar](50), [sj].[Name]) + '"', 'null') + ','
+												ELSE
+													''
+												END
+											+ '"Alias":' + IIF([sj].[Alias] IS NOT NULL, '"' + CONVERT([varchar](50), [sj].[Alias]) + '"', 'null') + ','
+											+ '"ID":' + IIF([sj].[Id] IS NOT NULL, CONVERT([varchar], [sj].[Id]), 'null') + ''
+											+ '}'
+										FROM
+											@TopCat [sj]
+										WHERE
+											[sj].[Id] = [i].[Id]
+							GROUP BY
+											[sj].[Id]
+											,[sj].[Name]
+											,[sj].[Alias]
+										FOR XML
+											PATH(''), TYPE
+										).value('.[1]','NVARCHAR(MAX)'),1,2,'') + ']'
+		,[NamesList_json] = '[' + STUFF((
+										SELECT
+											','
+											+
+												CASE WHEN
+													[sj].[Name] IS NOT NULL
+												THEN
+													'"' + [sj].[Name] + '"'
+												ELSE
+													null
+												END
+										FROM
+											@TopCat [sj]
+										WHERE
+											[sj].[GroupColumn] = [i].[GroupColumn]
+										GROUP BY
+											[sj].[Name]
+										FOR XML
+											PATH(''), TYPE
+										).value('.[1]','NVARCHAR(MAX)'),1,1,'') + ']'
+	FROM
+		@TopCat [i]
+	) [j]
+GROUP BY
+	[Id]
+	,[Full_json]
+	,[NamesList_json]
+ORDER BY
+	[Id] ASC
+/* ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••• */
+DECLARE @VALUE AS [varchar](8000);
+ 
+SELECT
+	@VALUE = COALESCE(@VALUE + ',', '') + [Name]
+FROM
+	(
+	SELECT 'Don Gato' AS [Name]
+	UNION SELECT 'Demostenes' AS [Name]
+	UNION SELECT 'Benito Bodoque' AS [Name]
+	UNION SELECT 'Panza' AS [Name]
+	) AS [Temp]
+ 
+SELECT [Flat] = @VALUE;
+/* ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••• */ 
+SELECT
+	SUBSTRING((
+SELECT
+	',' + [Name]
+FROM
+	(
+	SELECT 'Don Gato' AS [Name]
+	UNION SELECT 'Demostenes' AS [Name]
+	UNION SELECT 'Benito Bodoque' AS [Name]
+	UNION SELECT 'Panza' AS [Name]
+	) AS [Temp]
+FOR XML PATH('')),2,200) AS [CSV]
+/* ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••• */
+```
+
+## <font style="Color:blue;">Read&nbsp;long&nbsp;(~>5M)&nbsp;JSON/VARCHAR(MAX)&nbsp;values&nbsp;from&nbsp;SSMS</font>
+
+Verify next configuration on SSMS:
+<!-- <img src="./resources/images/001.png" width="100%" /> -->
+![alt text](./resources/images/001.png "001")
+
+```sql
+/*
+For this exercise you need to insert a 5M json into the temporary table before trying the query,
+you can download 1 example RAW here:
+https://microsoftedge.github.io/Demos/json-dummy-data/5MB.json
+*/
+DECLARE @tbl AS TABLE
+					(
+						[ID] [int] IDENTITY(1,1) NOT NULL
+					,	[j] [nvarchar](MAX) NULL
+					);
+DECLARE @json NVARCHAR(MAX) = '<Copy_and_Paste_The_5M_JSON_Here>';
+INSERT INTO @tbl ([j]) VALUES (@json);
+/* •-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-• */
+SELECT
+    CAST('<A><![CDATA[' + CAST([j] as nvarchar(max)) + ']]></A>' AS xml)
+FROM @tbl;
+/* •-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-•-• */
+```
+
+## <font style="Color:blue;">Parse/Deflate&nbsp;XML</font>
+```sql
+/* ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~••~•~•~•~•~•~•~•~•~•~•~•~•~•~•~• */
+DECLARE @xml XML;
+/* ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~••~•~•~•~•~•~•~•~•~•~•~•~•~•~•~• */
+SELECT @xml = '
+				<dimensions>
+					<dimension name="height" value="0.14" /> 
+					<dimension name="width"  value="12.77"/>
+					<dimension name="width" value="12.77">fff</dimension>
+				</dimensions>
+				';
+SELECT
+	x.v.value('@name[1]', 'VARCHAR(100)') AS dimtype
+	,x.v.value('@value[1]', 'VARCHAR(100)') AS dimvalue
+	,x.v.value('/', 'VARCHAR(100)') as intvalue
+FROM
+	@xml.nodes('/dimensions/dimension') x(v);
+/* ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~••~•~•~•~•~•~•~•~•~•~•~•~•~•~•~• */
+SELECT @xml = '
+				<dimensions>
+					<dimension name="height" value="0.14" /> 
+					<dimension name="width" value="12.77"/> 
+					<dimension name="depth" value="12.92"/>
+				</dimensions>
+				';
+SELECT
+	x.v.value('@name[1]', 'VARCHAR(100)') AS dimtype
+	,x.v.value('@value[1]', 'VARCHAR(100)') AS dimvalue
+FROM
+	@xml.nodes('/dimensions/dimension[@name = "height" or @name = "width"]') x(v);
+/* ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~••~•~•~•~•~•~•~•~•~•~•~•~•~•~•~• */
+DECLARE @demo TABLE  (columnXML xml);
+insert into @demo (columnXML) values ('
+									<dimensions>
+										<dimension name="height" value="0.14" /> 
+										<dimension name="width" value="12.77">valor interno 1</dimension>
+										<dimension name="depth"	value="12.92"/>
+									</dimensions>
+									');
+insert into @demo (columnXML) values ('
+									<dimensions>
+										<dimension name="height" value="0.15" /> 
+										<dimension name="width" value="12.78">valor interno 2</dimension>
+										<dimension name="depth"	value="12.93"/>
+									</dimensions>
+									');
+SELECT
+	x.v.value('@name[1]', 'VARCHAR(100)') AS dimtype
+	,x.v.value('@value[1]', 'VARCHAR(100)') AS dimvalue
+	,x.v.value('/', 'VARCHAR(100)') AS invalue
+	,[columnXML].value('(/dimensions/dimension[@name = "width"])[1]', 'VARCHAR(100)') AS intvalue
+FROM
+	@demo
+CROSS APPLY
+	columnXML.nodes('/dimensions/dimension[@name = "height" or @name = "width"]') x(v);
+/* ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~••~•~•~•~•~•~•~•~•~•~•~•~•~•~•~• */
+SELECT
+	x.v.value('@name[1]', 'VARCHAR(100)') AS dimtype
+	,x.v.value('@value[1]', 'VARCHAR(100)') AS dimvalue
+FROM
+	@demo
+CROSS APPLY
+	columnXML.nodes('/dimensions/dimension') x(v);
+/* ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~••~•~•~•~•~•~•~•~•~•~•~•~•~•~•~• */
+SELECT 
+	dimtype,
+	dimvalue
+FROM
+	(
+	SELECT
+		x.v.value('@name[1]', 'VARCHAR(100)') AS dimtype
+		,x.v.value('@value[1]', 'VARCHAR(100)') AS dimvalue
+	FROM
+		@demo
+	CROSS APPLY
+		columnXML.nodes('/dimensions/dimension') x(v)
+	) [T]
+WHERE
+	T.dimtype in('height','width');
+/* ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~••~•~•~•~•~•~•~•~•~•~•~•~•~•~•~• */
+```
+
