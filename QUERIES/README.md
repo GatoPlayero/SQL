@@ -236,7 +236,7 @@ FROM
 												ELSE
 													''
 												END
-											+ '"Apellido":' + IIF([sj].[Alias] IS NOT NULL, '"' + CONVERT([varchar](50), [sj].[Alias]) + '"', 'null') + ','
+											+ '"Alias":' + IIF([sj].[Alias] IS NOT NULL, '"' + CONVERT([varchar](50), [sj].[Alias]) + '"', 'null') + ','
 											+ '"ID":' + IIF([sj].[Id] IS NOT NULL, CONVERT([varchar], [sj].[Id]), 'null') + ''
 											+ '}'
 										FROM
@@ -286,9 +286,10 @@ SELECT
 	@VALUE = COALESCE(@VALUE + ',', '') + [Name]
 FROM
 	(
-	SELECT 'Jehu' AS [Name]
-	UNION SELECT 'Alberto' AS [Name]
-	UNION SELECT 'Erilex' AS [Name]
+	SELECT 'Don Gato' AS [Name]
+	UNION SELECT 'Demostenes' AS [Name]
+	UNION SELECT 'Benito Bodoque' AS [Name]
+	UNION SELECT 'Panza' AS [Name]
 	) AS [Temp]
  
 SELECT [Flat] = @VALUE;
@@ -299,9 +300,10 @@ SELECT
 	',' + [Name]
 FROM
 	(
-	SELECT 'Jehu' AS [Name]
-	UNION SELECT 'Alberto' AS [Name]
-	UNION SELECT 'Erilex' AS [Name]
+	SELECT 'Don Gato' AS [Name]
+	UNION SELECT 'Demostenes' AS [Name]
+	UNION SELECT 'Benito Bodoque' AS [Name]
+	UNION SELECT 'Panza' AS [Name]
 	) AS [Temp]
 FOR XML PATH('')),2,200) AS [CSV]
 /* ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••• */
