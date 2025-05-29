@@ -9,9 +9,9 @@
 2. **[Obfuscate Data](#ObfuscateData)**
 3. **[Truncate date for grouping and comparing](#Truncatedateforgroupingandcomparing)**
 4. **[Parse/Deflate JASON](#ParseDeflateJASON)**
-5. **[Parse/Deflate XML](#ParseDeflateXML)**
+5. **[Flattening JSON](#FlatteningJSON)**
+6. **[Parse/Deflate XML](#ParseDeflateXML)**
 <!--
-6. **[](#)**
 7. **[](#)**
 8. **[](#)**
 9. **[](#)**
@@ -197,6 +197,114 @@ FROM
 					[Type] NVARCHAR(25) '$.type'
 				,	[Number] NVARCHAR(25) '$.number'
 			) AS ARRAY;
+```
+
+## <font style="Color:blue;">Flattening&nbsp;JSON</font>
+```
+/* ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••• */
+DECLARE @TopCat AS TABLE
+					(
+						[Id] [int] IDENTITY(1,1) NOT NULL
+					,	[Name] [varchar](50) NULL
+					,	[Alias] [varchar](50) NULL
+					,	[GroupColumn] [int] NULL
+					);
+ 
+INSERT INTO @TopCat ([Name], [Alias], [GroupColumn]) VALUES ('Don Gato',		'Top Cat',				0);
+INSERT INTO @TopCat ([Name], [Alias], [GroupColumn]) VALUES ('Demostenes',		'The Brain',			1);
+INSERT INTO @TopCat ([Name], [Alias], [GroupColumn]) VALUES ('Benito Bodoque',	'Benny the Ball',		2);
+INSERT INTO @TopCat ([Name], [Alias], [GroupColumn]) VALUES ('Panza',			'Fancy-Fancy',			3);
+INSERT INTO @TopCat ([Name], [Alias], [GroupColumn]) VALUES ('Espanto',			'Spook',				1);
+INSERT INTO @TopCat ([Name], [Alias], [GroupColumn]) VALUES ('Cucho',			'Choo-Choo',			0);
+/* ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••• */
+SELECT
+		[Id]
+	,	[Full_json]
+	,	[NamesList_json]
+FROM
+	(
+	SELECT
+		[i].[Id]
+		,[Full_json] = '[{' + STUFF((
+										SELECT
+											',{'
+											+
+												CASE WHEN
+													1 = 1
+												THEN
+													'"Nombre":' + IIF([sj].[Name] IS NOT NULL, '"' + CONVERT([varchar](50), [sj].[Name]) + '"', 'null') + ','
+												ELSE
+													''
+												END
+											+ '"Apellido":' + IIF([sj].[Alias] IS NOT NULL, '"' + CONVERT([varchar](50), [sj].[Alias]) + '"', 'null') + ','
+											+ '"ID":' + IIF([sj].[Id] IS NOT NULL, CONVERT([varchar], [sj].[Id]), 'null') + ''
+											+ '}'
+										FROM
+											@TopCat [sj]
+										WHERE
+											[sj].[Id] = [i].[Id]
+							GROUP BY
+											[sj].[Id]
+											,[sj].[Name]
+											,[sj].[Alias]
+										FOR XML
+											PATH(''), TYPE
+										).value('.[1]','NVARCHAR(MAX)'),1,2,'') + ']'
+		,[NamesList_json] = '[' + STUFF((
+										SELECT
+											','
+											+
+												CASE WHEN
+													[sj].[Name] IS NOT NULL
+												THEN
+													'"' + [sj].[Name] + '"'
+												ELSE
+													null
+												END
+										FROM
+											@TopCat [sj]
+										WHERE
+											[sj].[GroupColumn] = [i].[GroupColumn]
+										GROUP BY
+											[sj].[Name]
+										FOR XML
+											PATH(''), TYPE
+										).value('.[1]','NVARCHAR(MAX)'),1,1,'') + ']'
+	FROM
+		@TopCat [i]
+	) [j]
+GROUP BY
+	[Id]
+	,[Full_json]
+	,[NamesList_json]
+ORDER BY
+	[Id] ASC
+/* ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••• */
+DECLARE @VALUE AS [varchar](8000);
+ 
+SELECT
+	@VALUE = COALESCE(@VALUE + ',', '') + [Name]
+FROM
+	(
+	SELECT 'Jehu' AS [Name]
+	UNION SELECT 'Alberto' AS [Name]
+	UNION SELECT 'Erilex' AS [Name]
+	) AS [Temp]
+ 
+SELECT [Flat] = @VALUE;
+/* ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••• */ 
+SELECT
+	SUBSTRING((
+SELECT
+	',' + [Name]
+FROM
+	(
+	SELECT 'Jehu' AS [Name]
+	UNION SELECT 'Alberto' AS [Name]
+	UNION SELECT 'Erilex' AS [Name]
+	) AS [Temp]
+FOR XML PATH('')),2,200) AS [CSV]
+/* ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••• */
 ```
 
 ## <font style="Color:blue;">Parse/Deflate&nbsp;XML</font>
