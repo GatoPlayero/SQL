@@ -8,8 +8,8 @@
 1. **[Retrieve roles and granted permissions in AzSQL](#RetrieveRolesandGrantedPermissionsinAzSQL)**
 2. **[Obfuscate Data](#ObfuscateData)**
 3. **[Truncate date for grouping and comparing](#Truncatedateforgroupingandcomparing)**
+4. **[Parse/Deflate XML](#Parse/DeflateXML)**
 <!--
-4. **[](#)**
 5. **[](#)**
 6. **[](#)**
 7. **[](#)**
@@ -120,7 +120,7 @@ ORDER BY
 	[Id] ASC;
 ```
 
-## <font style="Color:blue;">Truncate&nbsp;date&nbsp;for&nbsp;grouping&nbsp;and&nbsp;comparing</font>
+## <font style="Color:blue;">Parse/Deflate&nbsp;XML</font>
 ```sql
 /* Equivalent to bin() in KQL */
 DECLARE	@d datetime2	=	'2021-12-08 11:30:15.1234567';
@@ -139,4 +139,86 @@ SELECT
 	,	'Second'		=	DATETRUNC(second, @d)
 	,	'Millisecond'	=	DATETRUNC(millisecond, @d)
 	,	'Microsecond'	=	DATETRUNC(microsecond, @d);
+```
+## <font style="Color:blue;">Truncate&nbsp;date&nbsp;for&nbsp;grouping&nbsp;and&nbsp;comparing</font>
+```sql
+-- ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•
+DECLARE @xml XML;
+-- ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•
+SELECT @xml = '
+				<dimensions>
+					<dimension name="height" value="0.14" /> 
+					<dimension name="width"  value="12.77"/>
+					<dimension name="width" value="12.77">fff</dimension>
+				</dimensions>
+				';
+SELECT
+	x.v.value('@name[1]', 'VARCHAR(100)') AS dimtype
+	,x.v.value('@value[1]', 'VARCHAR(100)') AS dimvalue
+	,x.v.value('/', 'VARCHAR(100)')
+FROM
+	@xml.nodes('/dimensions/dimension') x(v);
+-- ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•
+SELECT @xml = '
+				<dimensions>
+					<dimension name="height" value="0.14" /> 
+					<dimension name="width" value="12.77"/> 
+					<dimension name="depth" value="12.92"/>
+				</dimensions>
+				';
+SELECT
+	x.v.value('@name[1]', 'VARCHAR(100)') AS dimtype
+	,x.v.value('@value[1]', 'VARCHAR(100)') AS dimvalue
+FROM
+	@xml.nodes('/dimensions/dimension[@name = "height" or @name = "width"]') x(v);
+-- ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•
+DECLARE @demo TABLE  (columnXML xml);
+insert into @demo (columnXML) values ('
+									<dimensions>
+										<dimension name="height" value="0.14" /> 
+										<dimension name="width" value="12.77">valor interno 1</dimension>
+										<dimension name="depth"	value="12.92"/>
+									</dimensions>
+									');
+insert into @demo (columnXML) values ('
+									<dimensions>
+										<dimension name="height" value="0.15" /> 
+										<dimension name="width" value="12.78">valor interno 2</dimension>
+										<dimension name="depth"	value="12.93"/>
+									</dimensions>
+									');
+SELECT
+	x.v.value('@name[1]', 'VARCHAR(100)') AS dimtype
+	,x.v.value('@value[1]', 'VARCHAR(100)') AS dimvalue
+	,x.v.value('/', 'VARCHAR(100)') AS invalue
+	,[columnXML].value('(/dimensions/dimension[@name = "width"])[1]', 'VARCHAR(100)') AS intvalue
+FROM
+	@demo
+CROSS APPLY
+	columnXML.nodes('/dimensions/dimension[@name = "height" or @name = "width"]') x(v);
+-- ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•
+SELECT
+	x.v.value('@name[1]', 'VARCHAR(100)') AS dimtype
+	,x.v.value('@value[1]', 'VARCHAR(100)') AS dimvalue
+FROM
+	@demo
+CROSS APPLY
+	columnXML.nodes('/dimensions/dimension') x(v);
+-- ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•
+SELECT 
+	dimtype,
+	dimvalue
+FROM
+	(
+	SELECT
+		x.v.value('@name[1]', 'VARCHAR(100)') AS dimtype
+		,x.v.value('@value[1]', 'VARCHAR(100)') AS dimvalue
+	FROM
+		@demo
+	CROSS APPLY
+		columnXML.nodes('/dimensions/dimension') x(v)
+	) [T]
+WHERE
+	T.dimtype in('height','width');
+-- ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•
 ```
