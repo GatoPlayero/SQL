@@ -197,7 +197,7 @@ FROM
 					[Type] NVARCHAR(25) '$.type'
 				,	[Number] NVARCHAR(25) '$.number'
 			) AS ARRAY;
-´´´
+```
 
 ## <font style="Color:blue;">Parse/Deflate&nbsp;XML</font>
 ```sql
