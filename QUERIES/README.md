@@ -8,9 +8,9 @@
 1. **[Retrieve roles and granted permissions in AzSQL](#RetrieveRolesandGrantedPermissionsinAzSQL)**
 2. **[Obfuscate Data](#ObfuscateData)**
 3. **[Truncate date for grouping and comparing](#Truncatedateforgroupingandcomparing)**
-4. **[Parse/Deflate XML](#ParseDeflateXML)**
+4. **[Parse/Deflate JASON](#ParseDeflateJASON)**
+5. **[Parse/Deflate XML](#ParseDeflateXML)**
 <!--
-5. **[](#)**
 6. **[](#)**
 7. **[](#)**
 8. **[](#)**
@@ -141,11 +141,69 @@ SELECT
 	,	'Microsecond'	=	DATETRUNC(microsecond, @d);
 ```
 
+## <font style="Color:blue;">Parse/Deflate&nbsp;JASON</font>
+```sql
+DECLARE @tbl AS TABLE
+					(
+						[ID] [int] IDENTITY(1,1) NOT NULL
+					,	[j] [nvarchar](MAX) NULL
+					);
+ 
+DECLARE @json NVARCHAR(MAX)
+	= '{
+			"firstName": "John",
+			"lastName": "doe",
+			"age": 26,
+			"address": {
+				"streetAddress": "naist street",
+				"city": "Nara",
+				"postalCode": "630-0192"
+			},
+			"phoneNumbers": [
+				{
+					"type": "iPhone",
+					"number": "0123-4567-8888"
+				},
+				{
+					"type": "home",
+					"number": "0123-4567-8910"
+				}
+			]
+		}';
+ 
+INSERT INTO @tbl ([j]) VALUES (@json);
+SELECT @json = NULL;
+ 
+SELECT
+		Core.*
+	,	ARRAY.[Type]
+	,	ARRAY.[Number]
+FROM
+	@tbl [tbl]
+	OUTER APPLY
+		OPENJSON([tbl].[j])
+			WITH
+			(
+					FirstName NVARCHAR(25) '$.firstName'
+				,	LastName NVARCHAR(25) '$.lastName'
+				,	Age INT '$.age'
+				,	streetAddress NVARCHAR(25) '$.address.streetAddress'
+				,	city NVARCHAR(25) '$.address.city'
+			) AS Core
+		CROSS APPLY
+		OPENJSON([tbl].[j], '$.phoneNumbers')
+			WITH
+			(
+					[Type] NVARCHAR(25) '$.type'
+				,	[Number] NVARCHAR(25) '$.number'
+			) AS ARRAY;
+´´´
+
 ## <font style="Color:blue;">Parse/Deflate&nbsp;XML</font>
 ```sql
--- ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•
+/* ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~••~•~•~•~•~•~•~•~•~•~•~•~•~•~•~• */
 DECLARE @xml XML;
--- ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•
+/* ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~••~•~•~•~•~•~•~•~•~•~•~•~•~•~•~• */
 SELECT @xml = '
 				<dimensions>
 					<dimension name="height" value="0.14" /> 
@@ -156,10 +214,10 @@ SELECT @xml = '
 SELECT
 	x.v.value('@name[1]', 'VARCHAR(100)') AS dimtype
 	,x.v.value('@value[1]', 'VARCHAR(100)') AS dimvalue
-	,x.v.value('/', 'VARCHAR(100)')
+	,x.v.value('/', 'VARCHAR(100)') as intvalue
 FROM
 	@xml.nodes('/dimensions/dimension') x(v);
--- ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•
+/* ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~••~•~•~•~•~•~•~•~•~•~•~•~•~•~•~• */
 SELECT @xml = '
 				<dimensions>
 					<dimension name="height" value="0.14" /> 
@@ -172,7 +230,7 @@ SELECT
 	,x.v.value('@value[1]', 'VARCHAR(100)') AS dimvalue
 FROM
 	@xml.nodes('/dimensions/dimension[@name = "height" or @name = "width"]') x(v);
--- ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•
+/* ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~••~•~•~•~•~•~•~•~•~•~•~•~•~•~•~• */
 DECLARE @demo TABLE  (columnXML xml);
 insert into @demo (columnXML) values ('
 									<dimensions>
@@ -197,7 +255,7 @@ FROM
 	@demo
 CROSS APPLY
 	columnXML.nodes('/dimensions/dimension[@name = "height" or @name = "width"]') x(v);
--- ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•
+/* ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~••~•~•~•~•~•~•~•~•~•~•~•~•~•~•~• */
 SELECT
 	x.v.value('@name[1]', 'VARCHAR(100)') AS dimtype
 	,x.v.value('@value[1]', 'VARCHAR(100)') AS dimvalue
@@ -205,7 +263,7 @@ FROM
 	@demo
 CROSS APPLY
 	columnXML.nodes('/dimensions/dimension') x(v);
--- ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•
+/* ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~••~•~•~•~•~•~•~•~•~•~•~•~•~•~•~• */
 SELECT 
 	dimtype,
 	dimvalue
@@ -221,5 +279,5 @@ FROM
 	) [T]
 WHERE
 	T.dimtype in('height','width');
--- ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•
+/* ~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~•~••~•~•~•~•~•~•~•~•~•~•~•~•~•~•~• */
 ```
