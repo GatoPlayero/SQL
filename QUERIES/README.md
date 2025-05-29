@@ -5,10 +5,24 @@
 <hr>
 
 ## Table of Contents
-1. **[Retrieve Roles and Granted Permissions in AzSQL](#RetrieveRolesandGrantedPermissionsinAzSQL)**
+1. **[Retrieve roles and granted permissions in AzSQL](#RetrieveRolesandGrantedPermissionsinAzSQL)**
 2. **[Obfuscate Data](#ObfuscateData)**
+3. **[Truncate date for grouping and comparing](#Truncatedateforgroupingandcomparing)**
+<!--
+4. **[](#)**
+5. **[](#)**
+6. **[](#)**
+7. **[](#)**
+8. **[](#)**
+9. **[](#)**
+10. **[](#)**
+11. **[](#)**
+-->
 
-## <font style="Color:blue;">Retrieve&nbsp;Roles&nbsp;and&nbsp;Granted&nbsp;Permissions&nbsp;in&nbsp;AzSQL&#160;</font>
+
+
+
+## <font style="Color:blue;">Retrieve&nbsp;roles&nbsp;and&nbsp;granted&nbsp;permissions&nbsp;in&nbsp;AzSQL&#160;</font>
 
 ```sql
 /* Get db users and their roles for Azure SQL */
@@ -79,7 +93,7 @@ WHERE
 						) -- You can apply filter(s) for users and groups
 ```
 
-## <font style="Color:blue;">Obfuscate&nbsp;Data</font>
+## <font style="Color:blue;">Obfuscate&nbsp;data</font>
 ```sql
 DECLARE @TopCat AS TABLE
 					(
@@ -104,4 +118,25 @@ FROM
 	@TopCat
 ORDER BY
 	[Id] ASC;
+```
+
+## <font style="Color:blue;">Truncate&nbsp;date&nbsp;for&nbsp;grouping&nbsp;and&nbsp;comparing</font>
+```sql
+/* Equivalent to bin() in KQL */
+DECLARE	@d datetime2	=	'2021-12-08 11:30:15.1234567';
+SELECT	@d				=	sysdatetimeoffset();
+SELECT
+		'_'				=	@d
+	,	'Year'			=	DATETRUNC(year, @d)
+	,	'Quarter'		=	DATETRUNC(quarter, @d)
+	,	'Month'			=	DATETRUNC(month, @d)
+	,	'Week'			=	DATETRUNC(week, @d) -- Using the default DATEFIRST setting value of 7 (U.S. English)
+	,	'Iso_week'		=	DATETRUNC(iso_week, @d)
+	,	'DayOfYear'		=	DATETRUNC(dayofyear, @d)
+	,	'Day'			=	DATETRUNC(day, @d)
+	,	'Hour'			=	DATETRUNC(hour, @d)
+	,	'Minute'		=	DATETRUNC(minute, @d)
+	,	'Second'		=	DATETRUNC(second, @d)
+	,	'Millisecond'	=	DATETRUNC(millisecond, @d)
+	,	'Microsecond'	=	DATETRUNC(microsecond, @d);
 ```
