@@ -10,10 +10,9 @@
 3. **[Truncate date for grouping and comparing](#Truncatedateforgroupingandcomparing)**
 4. **[Parse/Deflate JASON](#ParseDeflateJASON)**
 5. **[Flattening JSON](#FlatteningJSON)**
-6. **[Read long (~>5M) JSON/VARCHAR(MAX) values from SSMS](#Readlong(~>5M)JSONVARCHAR(MAX)valuesfromSSMS)**
+6. **[Read long (~>5M) JSON/VARCHAR(MAX) values from SSMS](#Readlong5MJSONVARCHARMAXvaluesfromSSMS)**
 7. **[Parse/Deflate XML](#ParseDeflateXML)**
 <!--
-
 8. **[](#)**
 9. **[](#)**
 10. **[](#)**
