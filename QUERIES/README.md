@@ -6,7 +6,7 @@
 
 ## Table of Contents
 1. **[Retrieve Roles and Granted Permissions in AzSQL](#RetrieveRolesandGrantedPermissionsinAzSQL)**
-
+2. **[Obfuscate Data](#ObfuscateData)**
 
 ## <font style="Color:blue;">Retrieve&nbsp;Roles&nbsp;and&nbsp;Granted&nbsp;Permissions&nbsp;in&nbsp;AzSQL&#160;</font>
 
@@ -77,4 +77,31 @@ WHERE
 							,	'EXTERNAL_GROUP'
 							,	'APPLICATION_ROLE'
 						) -- You can apply filter(s) for users and groups
+```
+
+## <font style="Color:blue;">Obfuscate&nbsp;Data</font>
+```sql
+DECLARE @TopCat AS TABLE
+					(
+						[Id] [int] IDENTITY(1,1) NOT NULL
+					,	[Name] [varchar](50) NULL
+					,	[Alias] [varchar](50) NULL
+					);
+ 
+INSERT INTO @TopCat ([Name], [Alias]) VALUES ('Don Gato',		'Top Cat');
+INSERT INTO @TopCat ([Name], [Alias]) VALUES ('Demostenes',		'The Brain');
+INSERT INTO @TopCat ([Name], [Alias]) VALUES ('Benito Bodoque',	'Benny the Ball');
+INSERT INTO @TopCat ([Name], [Alias]) VALUES ('Panza',			'Fancy-Fancy');
+INSERT INTO @TopCat ([Name], [Alias]) VALUES ('Espanto',		'Spook');
+INSERT INTO @TopCat ([Name], [Alias]) VALUES ('Cucho',			'Choo-Choo');
+
+/* Algorithms Available >> MD2 | MD4 | MD5 | SHA | SHA1 | SHA2_256 | SHA2_512  */
+SELECT
+		[Name]
+	,	[Option1]	=	CONVERT(NVARCHAR(MAX), HASHBYTES('SHA2_512', CONVERT(NVARCHAR(MAX), [Alias])), 2)
+	,	[Option2]	=	HASHBYTES('SHA2_512', CONVERT(NVARCHAR(MAX), [Alias]))
+FROM
+	@TopCat
+ORDER BY
+	[Id] ASC;
 ```
